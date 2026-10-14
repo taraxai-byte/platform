@@ -1,12 +1,5 @@
 "use client";
-/**
- * TARAX AI — Autonomous B2B Global Trade & Multi-Agent Negotiation Engine
- * Next.js (App Router) · Tailwind CSS · lucide-react · recharts
- *
- * npm i lucide-react recharts
- * Data layer: see `api` + `useLive` below. Set NEXT_PUBLIC_TARAX_API to your engine URL.
- * With no backend reachable, the UI falls back to the mock data so you can develop offline.
- */
+
 import { createContext, useContext, useEffect, useMemo, useReducer, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart,
@@ -18,7 +11,6 @@ import {
   CheckCircle2, AlertTriangle, ShieldCheck
 } from "lucide-react";
 
-/* ───────────── Types (align with your engine's models) ───────────── */
 type AgentKey = "negotiator" | "compliance" | "logistics" | "finance";
 type AgentState = "idle" | "working" | "done" | "flagged";
 type Negotiation = {
@@ -30,11 +22,10 @@ type Supplier = { id: string; name: string; country: string; score: number; cert
 type RFQ = { id: string; buyer: string; item: string; qty: string; target: string; deadline: string };
 type Contract = { id: string; parties: string; valueUsd: number; savingUsd: number; incoterm: string; milestones: [number, number]; status: string; from: string; to: string; age: number };
 
-/* Commission engine rules */
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const txRate = (v: number) => (v < 250_000 ? 0.015 : v < 750_000 ? 0.0125 : 0.01); // dynamic 1.0%–1.5%
-const ESCROW_RATE = 0.003; // 0.3% of each milestone tranche released
-const SAVINGS_SHARE = 0.1; // 10% of negotiator savings
+const txRate = (v: number) => (v < 250000 ? 0.015 : v < 750000 ? 0.0125 : 0.01);
+const ESCROW_RATE = 0.003;
+const SAVINGS_SHARE = 0.1;
 const fees = (c: Contract) => {
   const tx = c.valueUsd * txRate(c.valueUsd);
   const escrow = c.valueUsd * ESCROW_RATE * (c.milestones[0] / c.milestones[1]);
@@ -42,7 +33,6 @@ const fees = (c: Contract) => {
   return { tx, escrow, sav, total: tx + escrow + sav };
 };
 
-/* ───────────── Data layer ───────────── */
 const API: string =
   (typeof process !== "undefined" && process.env && process.env.NEXT_PUBLIC_TARAX_API) || "/api/tarax";
 
@@ -75,7 +65,6 @@ const mock = {
   ],
 };
 
-/* ───────────── State & Reducer Setup ───────────── */
 type AppState = {
   negotiations: Negotiation[];
   suppliers: Supplier[];
@@ -134,7 +123,6 @@ function appReducer(state: AppState, action: AppAction): AppState {
   }
 }
 
-/* ───────────── Live Hook Data Layer ───────────── */
 export function useLiveEngine() {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
@@ -156,11 +144,15 @@ export function useLiveEngine() {
           });
         }
       } catch (err) {
-        console.warn("TARAX Engine unreachable, using local fallback UI.");
         if (active) {
           dispatch({
             type: "SET_DATA",
-            payload: { negotiations: [], loading: false },
+            payload: { 
+              negotiations: [
+                { id: "NEG-901", rfq: "RFQ-2291", supplier: "S-101", buyer: "Hamburg Industrie", item: "HDPE granules", qty: 240, ask: 1240, offer: 1190, finalPrice: 1195, target: 1180, currency: "USD", incoterm: "CIF", progress: 85, t: 1, certs: [], flag: false, from: "SHA", to: "HAM", log: "" }
+              ], 
+              loading: false 
+            },
           });
         }
       }
@@ -178,10 +170,8 @@ export function useLiveEngine() {
   return { state, dispatch };
 }
 
-/* ───────────── Main Dashboard Interface Component ───────────── */
 export default function TaraxDashboard() {
   const { state, dispatch } = useLiveEngine();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (state.loading) {
     return (
@@ -196,7 +186,6 @@ export default function TaraxDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 antialiased">
-      {/* 1. Header Section */}
       <header className="border-b border-slate-800 bg-slate-900/50 p-4 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
@@ -213,7 +202,6 @@ export default function TaraxDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        {/* 2. Autonomous Agent Grid */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold tracking-wider text-slate-400 uppercase flex items-center gap-2">
             <Gauge className="h-4 w-4 text-slate-400" /> Autonomous Agent Grid
@@ -224,3 +212,13 @@ export default function TaraxDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold capitalize text-slate-200">{agent}</span>
                   <div className={`h-2 w-2 rounded-full ${
+                    status === "working" ? "bg-amber-500 animate-pulse" :
+                    status === "done" ? "bg-emerald-500" :
+                    status === "flagged" ? "bg-rose-500" : "bg-slate-600"
+                  }`} />
+                </div>
+                <div className="flex items-baseline justify-between mt-4">
+                  <span className="text-xs text-slate-500">Status</span>
+                  <span className={`text-xs font-mono px-2 py-0.5 rounded uppercase font-semibold ${
+                    status === "working" ? "bg-amber-500/10 text-amber-400" :
+                    status === "done" ? "bg-emerald-500/10 text-emerald-400" :
